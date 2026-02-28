@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AudiViz</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black: #000000;
+      --card: #111111;
+      --border: #1e1e1e;
+      --cyan: #00e5ff;
+      --cyan-dim: rgba(0,229,255,0.12);
+      --cyan-glow: rgba(0,229,255,0.35);
+      --white: #f0f0f0;
+      --muted: #555;
+      --muted2: #888;
+    }
+
+    html, body {
+      background: var(--black);
+      color: var(--white);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 0; opacity: 0.5;
+    }
+
+    .wrapper { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 40px; }
+
+    header {
+      position: relative; padding: 64px 0 56px;
+      border-bottom: 1px solid var(--border); overflow: hidden;
+    }
+    .header-inner { display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; }
+    .brand { display: flex; flex-direction: column; gap: 6px; }
+
+    .brand-label {
+      font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.3em;
+      color: var(--cyan); text-transform: uppercase;
+      opacity: 0; animation: fadeUp 0.6s ease 0.1s forwards;
+    }
+    .brand-title {
+      font-family: 'Bebas Neue', sans-serif; font-size: clamp(72px, 10vw, 128px);
+      line-height: 0.9; color: var(--white);
+      opacity: 0; animation: fadeUp 0.7s ease 0.2s forwards;
+    }
+    .brand-title span {
+      color: var(--cyan);
+      text-shadow: 0 0 40px var(--cyan-glow), 0 0 80px rgba(0,229,255,0.15);
+    }
+    .brand-sub {
+      font-size: 13px; font-weight: 300; color: var(--muted2);
+      letter-spacing: 0.04em; margin-top: 10px;
+      opacity: 0; animation: fadeUp 0.7s ease 0.35s forwards;
+    }
+
+    .waveform-deco {
+      flex-shrink: 0; display: flex; align-items: center; gap: 3px; height: 80px;
+      opacity: 0; animation: fadeIn 1s ease 0.5s forwards;
+    }
+    .waveform-deco .bar {
+      width: 3px; background: var(--cyan); border-radius: 2px; opacity: 0.7;
+      animation: wave var(--dur,1.2s) ease-in-out infinite alternate;
+      animation-delay: var(--delay,0s);
+    }
+    @keyframes wave {
+      from { height: 6px; opacity: 0.3; }
+      to   { height: var(--max-h,40px); opacity: 0.85; }
+    }
+
+    .glow-blob {
+      position: absolute; top: -60px; right: -80px; width: 420px; height: 420px;
+      background: radial-gradient(circle, rgba(0,229,255,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .btn-new {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--cyan); color: #000;
+      font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 14px 28px; border: none; cursor: pointer;
+      clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+      transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+      opacity: 0; animation: fadeUp 0.6s ease 0.5s forwards;
+    }
+    .btn-new:hover { background: #33ecff; box-shadow: 0 0 30px var(--cyan-glow); transform: translateY(-2px); }
+    .btn-new:active { transform: translateY(0); }
+
+    main { padding: 56px 0 80px; }
+
+    .section-header {
+      display: flex; align-items: baseline; justify-content: space-between;
+      margin-bottom: 32px; opacity: 0; animation: fadeUp 0.6s ease 0.65s forwards;
+    }
+    .section-title {
+      font-family: 'Space Mono', monospace; font-size: 11px;
+      letter-spacing: 0.28em; color: var(--muted2); text-transform: uppercase;
+    }
+    .section-count { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--muted); }
+
+    .projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+
+    .empty-state {
+      grid-column: 1/-1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 80px 40px; border: 1px dashed var(--border);
+      text-align: center; gap: 16px;
+      opacity: 0; animation: fadeIn 0.8s ease 0.8s forwards;
+    }
+    .empty-icon {
+      width: 56px; height: 56px; display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--border); color: var(--muted); margin-bottom: 8px;
+    }
+    .empty-state h3 { font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 400; color: var(--muted2); }
+    .empty-state p { font-size: 13px; color: var(--muted); max-width: 280px; line-height: 1.6; }
+
+    .project-card {
+      background: var(--card); border: 1px solid var(--border); padding: 24px;
+      cursor: pointer; position: relative; overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+      clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+      opacity: 0; animation: fadeUp 0.5s ease forwards;
+    }
+    .project-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, var(--cyan-dim) 0%, transparent 60%);
+      opacity: 0; transition: opacity 0.25s;
+    }
+    .project-card:hover { border-color: rgba(0,229,255,0.3); transform: translateY(-3px); }
+    .project-card:hover::before { opacity: 1; }
+
+    .card-corner {
+      position: absolute; top: 0; right: 0; width: 16px; height: 16px;
+      background: var(--cyan); clip-path: polygon(0 0, 100% 100%, 100% 0);
+    }
+    .card-waveform { display: flex; align-items: center; gap: 2px; height: 28px; margin-bottom: 20px; }
+    .card-waveform .b { width: 2px; background: var(--cyan); border-radius: 1px; opacity: 0.5; }
+    .card-name {
+      font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 700;
+      color: var(--white); margin-bottom: 16px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .card-meta { display: flex; flex-direction: column; gap: 6px; }
+    .meta-row { display: flex; justify-content: space-between; align-items: center; }
+    .meta-label { font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; }
+    .meta-value { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--muted2); }
+
+    .card-delete {
+      position: absolute; top: 10px; left: 14px;
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; padding: 4px; opacity: 0;
+      transition: opacity 0.2s, color 0.2s; z-index: 2;
+    }
+    .project-card:hover .card-delete { opacity: 1; }
+    .card-delete:hover { color: #ff4d4d; }
+
+    /* MODAL */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(4px); z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.25s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--card); border: 1px solid rgba(0,229,255,0.2);
+      padding: 40px; width: 100%; max-width: 440px;
+      clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%);
+      transform: translateY(16px); transition: transform 0.25s;
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal h2 { font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--white); margin-bottom: 6px; }
+    .modal p { font-size: 13px; color: var(--muted2); margin-bottom: 28px; }
+    .form-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+    .form-group label { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.2em; color: var(--muted2); text-transform: uppercase; }
+    .form-group input {
+      background: #0a0a0a; border: 1px solid var(--border);
+      color: var(--white); font-family: 'Space Mono', monospace; font-size: 13px;
+      padding: 12px 16px; outline: none; transition: border-color 0.2s; width: 100%;
+    }
+    .form-group input:focus { border-color: var(--cyan); }
+    .form-group input::placeholder { color: var(--muted); }
+    .modal-actions { display: flex; gap: 12px; margin-top: 28px; }
+    .btn-cancel {
+      flex: 1; padding: 12px; background: none; border: 1px solid var(--border);
+      color: var(--muted2); font-family: 'Space Mono', monospace; font-size: 11px;
+      letter-spacing: 0.1em; cursor: pointer; transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-cancel:hover { border-color: var(--muted2); color: var(--white); }
+    .btn-create {
+      flex: 2; padding: 12px; background: var(--cyan); border: none; color: #000;
+      font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+      clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .btn-create:hover { background: #33ecff; box-shadow: 0 0 20px var(--cyan-glow); }
+
+    @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2>New Project</h2>
+    <p>Give your project a name to get started.</p>
+    <div class="form-group">
+      <label>Project Name</label>
+      <input type="text" id="projectName" placeholder="e.g. Midnight Frequency" maxlength="48" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="cancelBtn">Cancel</button>
+      <button class="btn-create" id="createBtn">Create Project</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrapper">
+  <header>
+    <div class="glow-blob"></div>
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-label">Audio Visualization Studio</div>
+        <div class="brand-title">Audi<span>Viz</span></div>
+        <div class="brand-sub">Transform your audio into stunning visual experiences</div>
+        <button class="btn-new" id="openModal" style="margin-top:28px;width:fit-content;">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M7 1v12M1 7h12" stroke="#000" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          New Project
+        </button>
+      </div>
+      <div class="waveform-deco" id="waveDeco"></div>
+    </div>
+  </header>
+  <main>
+    <div class="section-header">
+      <span class="section-title">My Projects</span>
+      <span class="section-count" id="projectCount">0 projects</span>
+    </div>
+    <div class="projects-grid" id="projectsGrid"></div>
+  </main>
+</div>
+
+<script>
+  /* Waveform decoration */
+  const waveDeco = document.getElementById('waveDeco');
+  [14,22,38,52,64,48,72,56,40,30,60,44,28,68,36,50,20,42,58,32,46,70,24,54].forEach((h,i) => {
+    const b = document.createElement('div');
+    b.className = 'bar';
+    b.style.setProperty('--max-h', h+'px');
+    b.style.setProperty('--dur', (0.9+Math.random()*0.7).toFixed(2)+'s');
+    b.style.setProperty('--delay', (i*0.06).toFixed(2)+'s');
+    b.style.height = '6px';
+    waveDeco.appendChild(b);
+  });
+
+  const STORAGE_KEY = 'audiviz_projects';
+  const EDITOR_FILE = 'AudiViz editor.html';
+
+  function loadProjects() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+    catch { return []; }
+  }
+  function saveProjects(p) { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); }
+  function formatDate(ts) {
+    return new Date(ts).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+  }
+  function formatSize(b) {
+    if (b < 1024) return b+' B';
+    if (b < 1048576) return (b/1024).toFixed(1)+' KB';
+    return (b/1048576).toFixed(2)+' MB';
+  }
+  function randomSize() { return Math.floor(Math.random()*12*1048576 + 262144); }
+  function miniWave(seed) {
+    return Array.from({length:18},(_,i)=>`<div class="b" style="height:${(6+Math.abs(Math.sin(seed*i*0.7))*22).toFixed(1)}px"></div>`).join('');
+  }
+
+  function render() {
+    const projects = loadProjects();
+    const grid = document.getElementById('projectsGrid');
+    document.getElementById('projectCount').textContent = projects.length+' project'+(projects.length!==1?'s':'');
+    grid.innerHTML = '';
+
+    if (!projects.length) {
+      grid.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M9 19V6l12-3v13M9 19c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm12 0c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2z"/>
+          </svg>
+        </div>
+        <h3>No projects yet</h3>
+        <p>Hit "New Project" to create your first audio visualization.</p>
+      </div>`;
+      return;
+    }
+
+    projects.forEach((p, idx) => {
+      const card = document.createElement('div');
+      card.className = 'project-card';
+      card.style.animationDelay = (idx*0.07+0.7)+'s';
+      card.innerHTML = `
+        <div class="card-corner"></div>
+        <button class="card-delete" title="Delete project">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2l8 8M10 2L2 10"/></svg>
+        </button>
+        <div class="card-waveform">${miniWave(p.id)}</div>
+        <div class="card-name">${p.name}</div>
+        <div class="card-meta">
+          <div class="meta-row"><span class="meta-label">Last Edit</span><span class="meta-value">${formatDate(p.lastEdit)}</span></div>
+          <div class="meta-row"><span class="meta-label">File Size</span><span class="meta-value">${formatSize(p.size)}</span></div>
+        </div>`;
+
+      /* Open project in editor */
+      card.addEventListener('click', () => {
+        window.location.href = `${EDITOR_FILE}?id=${p.id}&name=${encodeURIComponent(p.name)}`;
+      });
+
+      /* Delete button — stop propagation so it doesn't open editor */
+      card.querySelector('.card-delete').addEventListener('click', e => {
+        e.stopPropagation();
+        let projects = loadProjects();
+        saveProjects(projects.filter(pr => pr.id !== p.id));
+        render();
+      });
+
+      grid.appendChild(card);
+    });
+  }
+
+  /* Modal */
+  const modal = document.getElementById('modal');
+  const nameInput = document.getElementById('projectName');
+
+  document.getElementById('openModal').addEventListener('click', () => {
+    modal.classList.add('open');
+    setTimeout(() => nameInput.focus(), 250);
+  });
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+  function closeModal() { modal.classList.remove('open'); nameInput.value = ''; }
+
+  function createProject() {
+    const name = nameInput.value.trim();
+    if (!name) { nameInput.style.borderColor='#ff4d4d'; setTimeout(()=>nameInput.style.borderColor='',800); return; }
+    const projects = loadProjects();
+    const newProject = { id: Date.now(), name, lastEdit: Date.now(), size: randomSize() };
+    projects.unshift(newProject);
+    saveProjects(projects);
+    closeModal();
+    window.location.href = `${EDITOR_FILE}?id=${newProject.id}&name=${encodeURIComponent(name)}`;
+  }
+
+  document.getElementById('createBtn').addEventListener('click', createProject);
+  nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') createProject(); });
+
+  render();
+</script>
+</body>
+</html>
